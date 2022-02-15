@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>test_twenty_tasks.html</h1>
+    <p>Report generated on 15-Feb-2022 at 12:39:30 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.0.1"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>macOS-10.16-x86_64-i386-64bit</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "1.11.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.9.10</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 47.18 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Testcases.py::test_twenty_tasks</td>
+          <td class="col-duration">46.59</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>201
+200
+fetching bearer token
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2MjBiNTE3ZDk1N2JkMDAwMTcxYzM2MTgiLCJpYXQiOjE2NDQ5MDg5Mjd9.OmR7jUoMrE5B2V_vNRk1j9uq-6Bdp68WRcu1mlICUDA
+task1 corresponds to Studying
+201
+task2 corresponds to Cooking
+201
+task3 corresponds to Eating
+201
+200
+task4 corresponds to Dancing
+201
+task5 corresponds to Singing
+201
+200
+task6 corresponds to Walking
+201
+task7 corresponds to Jogging
+201
+200
+task8 corresponds to Listening
+201
+task9 corresponds to Fighting
+201
+task10 corresponds to Talking
+201
+task11 corresponds to its11
+201
+task12 corresponds to its12
+201
+task13 corresponds to 13
+201
+task14 corresponds to 14
+201
+task15 corresponds to its14
+201
+task16 corresponds to 16
+201
+task17 corresponds to 17
+201
+task 18 corresponds to 18 it is
+201
+task19 corresponds to 199
+201
+task20 corresponds to 200000
+201
+200
+20
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     register_a_user:User.py:17 Getting data for registration payload
+INFO     register_a_user:User.py:29 Registration payload is as below:
+INFO     register_a_user:User.py:30 {&#x27;name&#x27;: &#x27;Shaikhh&#x27;, &#x27;email&#x27;: &#x27;taprt29816@test.com&#x27;, &#x27;password&#x27;: &#x27;123456789&#x27;, &#x27;age&#x27;: 34}
+INFO     register_a_user:User.py:34 201
+INFO     register_a_user:User.py:36 Registration is done Successfully
+INFO     log_in:User.py:50 Getting data for Login payload
+INFO     log_in:User.py:58 Login payload is as below:
+INFO     log_in:User.py:59 {&#x27;email&#x27;: &#x27;taprt29816@test.com&#x27;, &#x27;password&#x27;: &#x27;123456789&#x27;}
+INFO     log_in:User.py:63 200
+INFO     log_in:User.py:68 The bearer_token is mentioned above
+INFO     log_in:User.py:70 User is logged in Successfully
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Studying&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 2
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Cooking&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 3
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Eating&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:66 inside pagination
+INFO     &lt;module&gt;:Task.py:175 Getting Pagination details....
+INFO     &lt;module&gt;:Task.py:185 200
+INFO     &lt;module&gt;:Task.py:187 Getting json response..
+INFO     &lt;module&gt;:Task.py:188 {&#x27;count&#x27;: 2, &#x27;data&#x27;: [{&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5183957bd000171c361c&#x27;, &#x27;description&#x27;: &#x27;Cooking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5184957bd000171c361d&#x27;, &#x27;description&#x27;: &#x27;Eating&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;__v&#x27;: 0}]}
+INFO     &lt;module&gt;:Task.py:191 Pagination is completed
+INFO     test_twenty_tasks:Testcases.py:69 4
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Dancing&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 5
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Singing&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:66 inside pagination
+INFO     &lt;module&gt;:Task.py:175 Getting Pagination details....
+INFO     &lt;module&gt;:Task.py:185 200
+INFO     &lt;module&gt;:Task.py:187 Getting json response..
+INFO     &lt;module&gt;:Task.py:188 {&#x27;count&#x27;: 2, &#x27;data&#x27;: [{&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5183957bd000171c361c&#x27;, &#x27;description&#x27;: &#x27;Cooking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5184957bd000171c361d&#x27;, &#x27;description&#x27;: &#x27;Eating&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;__v&#x27;: 0}]}
+INFO     &lt;module&gt;:Task.py:191 Pagination is completed
+INFO     test_twenty_tasks:Testcases.py:69 6
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Walking&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 7
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Jogging&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:66 inside pagination
+INFO     &lt;module&gt;:Task.py:175 Getting Pagination details....
+INFO     &lt;module&gt;:Task.py:185 200
+INFO     &lt;module&gt;:Task.py:187 Getting json response..
+INFO     &lt;module&gt;:Task.py:188 {&#x27;count&#x27;: 2, &#x27;data&#x27;: [{&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5183957bd000171c361c&#x27;, &#x27;description&#x27;: &#x27;Cooking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5184957bd000171c361d&#x27;, &#x27;description&#x27;: &#x27;Eating&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;__v&#x27;: 0}]}
+INFO     &lt;module&gt;:Task.py:191 Pagination is completed
+INFO     test_twenty_tasks:Testcases.py:69 8
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Listening&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 9
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Fighting&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 10
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;Talking&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 11
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;its11&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 12
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;its12&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 13
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;13&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 14
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;14&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 15
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;its14&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 16
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;16&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 17
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;17&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 18
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;18 it is&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 19
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;199&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 20
+INFO     test_twenty_tasks:Testcases.py:62 inside for loop
+INFO     &lt;module&gt;:Task.py:50 Getting data for add task payload
+INFO     &lt;module&gt;:Task.py:57 Add task payload is as below:
+INFO     &lt;module&gt;:Task.py:58 {&#x27;description&#x27;: &#x27;200000&#x27;}
+INFO     &lt;module&gt;:Task.py:62 201
+INFO     &lt;module&gt;:Task.py:64 Task creation is done Successfully
+INFO     test_twenty_tasks:Testcases.py:69 21
+INFO     get_task:Task.py:78 Getting data for get_task payload
+INFO     get_task:Task.py:84 Getting list of tasks...
+INFO     get_task:Task.py:85 {&#x27;description&#x27;: &#x27;reading book&#x27;}
+INFO     get_task:Task.py:89 200
+INFO     get_task:Task.py:91 Getting json response..
+INFO     get_task:Task.py:92 {&#x27;count&#x27;: 20, &#x27;data&#x27;: [{&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5181957bd000171c361b&#x27;, &#x27;description&#x27;: &#x27;Studying&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:49.447Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:49.447Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5183957bd000171c361c&#x27;, &#x27;description&#x27;: &#x27;Cooking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5184957bd000171c361d&#x27;, &#x27;description&#x27;: &#x27;Eating&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5188957bd000171c361e&#x27;, &#x27;description&#x27;: &#x27;Dancing&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:56.616Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:56.616Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b518a957bd000171c361f&#x27;, &#x27;description&#x27;: &#x27;Singing&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:58.459Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:58.459Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b518d957bd000171c3620&#x27;, &#x27;description&#x27;: &#x27;Walking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:01.758Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:01.758Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b518f957bd000171c3621&#x27;, &#x27;description&#x27;: &#x27;Jogging&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:03.415Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:03.415Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5193957bd000171c3622&#x27;, &#x27;description&#x27;: &#x27;Listening&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:07.031Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:07.031Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5194957bd000171c3623&#x27;, &#x27;description&#x27;: &#x27;Fighting&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:08.794Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:08.794Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5196957bd000171c3624&#x27;, &#x27;description&#x27;: &#x27;Talking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:10.441Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:10.441Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5198957bd000171c3626&#x27;, &#x27;description&#x27;: &#x27;its11&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:12.235Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:12.235Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5199957bd000171c3627&#x27;, &#x27;description&#x27;: &#x27;its12&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:13.993Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:13.993Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b519b957bd000171c3628&#x27;, &#x27;description&#x27;: &#x27;13&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:15.758Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:15.758Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b519d957bd000171c3629&#x27;, &#x27;description&#x27;: &#x27;14&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:17.808Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:17.808Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b519f957bd000171c362a&#x27;, &#x27;description&#x27;: &#x27;its14&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:19.463Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:19.463Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a1957bd000171c362b&#x27;, &#x27;description&#x27;: &#x27;16&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:21.245Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:21.245Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a3957bd000171c362c&#x27;, &#x27;description&#x27;: &#x27;17&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:23.004Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:23.004Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a4957bd000171c362d&#x27;, &#x27;description&#x27;: &#x27;18 it is&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:24.892Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:24.892Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a6957bd000171c362e&#x27;, &#x27;description&#x27;: &#x27;199&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:26.662Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:26.662Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a8957bd000171c362f&#x27;, &#x27;description&#x27;: &#x27;200000&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:28.558Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:28.558Z&#x27;, &#x27;__v&#x27;: 0}]}
+INFO     get_task:Task.py:98 Task id&#x27;s are successfully obtained
+INFO     test_twenty_tasks:Testcases.py:74 &lt;class &#x27;dict&#x27;&gt;
+INFO     test_twenty_tasks:Testcases.py:76 {&#x27;count&#x27;: 20, &#x27;data&#x27;: [{&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5181957bd000171c361b&#x27;, &#x27;description&#x27;: &#x27;Studying&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:49.447Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:49.447Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5183957bd000171c361c&#x27;, &#x27;description&#x27;: &#x27;Cooking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:51.159Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5184957bd000171c361d&#x27;, &#x27;description&#x27;: &#x27;Eating&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:52.943Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5188957bd000171c361e&#x27;, &#x27;description&#x27;: &#x27;Dancing&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:56.616Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:56.616Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b518a957bd000171c361f&#x27;, &#x27;description&#x27;: &#x27;Singing&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:08:58.459Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:08:58.459Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b518d957bd000171c3620&#x27;, &#x27;description&#x27;: &#x27;Walking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:01.758Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:01.758Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b518f957bd000171c3621&#x27;, &#x27;description&#x27;: &#x27;Jogging&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:03.415Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:03.415Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5193957bd000171c3622&#x27;, &#x27;description&#x27;: &#x27;Listening&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:07.031Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:07.031Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5194957bd000171c3623&#x27;, &#x27;description&#x27;: &#x27;Fighting&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:08.794Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:08.794Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5196957bd000171c3624&#x27;, &#x27;description&#x27;: &#x27;Talking&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:10.441Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:10.441Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5198957bd000171c3626&#x27;, &#x27;description&#x27;: &#x27;its11&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:12.235Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:12.235Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b5199957bd000171c3627&#x27;, &#x27;description&#x27;: &#x27;its12&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:13.993Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:13.993Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b519b957bd000171c3628&#x27;, &#x27;description&#x27;: &#x27;13&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:15.758Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:15.758Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b519d957bd000171c3629&#x27;, &#x27;description&#x27;: &#x27;14&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:17.808Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:17.808Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b519f957bd000171c362a&#x27;, &#x27;description&#x27;: &#x27;its14&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:19.463Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:19.463Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a1957bd000171c362b&#x27;, &#x27;description&#x27;: &#x27;16&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:21.245Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:21.245Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a3957bd000171c362c&#x27;, &#x27;description&#x27;: &#x27;17&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:23.004Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:23.004Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a4957bd000171c362d&#x27;, &#x27;description&#x27;: &#x27;18 it is&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:24.892Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:24.892Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a6957bd000171c362e&#x27;, &#x27;description&#x27;: &#x27;199&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:26.662Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:26.662Z&#x27;, &#x27;__v&#x27;: 0}, {&#x27;completed&#x27;: False, &#x27;_id&#x27;: &#x27;620b51a8957bd000171c362f&#x27;, &#x27;description&#x27;: &#x27;200000&#x27;, &#x27;owner&#x27;: &#x27;620b517d957bd000171c3618&#x27;, &#x27;createdAt&#x27;: &#x27;2022-02-15T07:09:28.558Z&#x27;, &#x27;updatedAt&#x27;: &#x27;2022-02-15T07:09:28.558Z&#x27;, &#x27;__v&#x27;: 0}]}
+INFO     test_twenty_tasks:Testcases.py:79 id extracted is....
+INFO     test_twenty_tasks:Testcases.py:80 &#x27;: 20, &#x27;
+INFO     test_twenty_tasks:Testcases.py:86 All 20 tasks are added successfully<br/></div></td></tr></tbody></table></body></html>

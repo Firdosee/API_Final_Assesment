@@ -8,14 +8,14 @@ from TestCases.Base_Logger import abc_test_Base
 
 class Test_API_User:
 
-    def register_a_user(self):
+    def register_a_user(self, testcasename):
         try:
             log = abc_test_Base.getLogger()
             url = 'https://api-nodejs-todolist.herokuapp.com/user/register'
             headers = {'content-type': 'application/json'}
             e1 = Excel_Data()
             log.info("Getting data for registration payload")
-            register_dict = e1.getAPIData("Register")
+            register_dict = e1.getAPIData(testcasename)
             name = str(register_dict['name'])
             email = str(register_dict['email'])
             password = str(register_dict['password'])
@@ -39,7 +39,7 @@ class Test_API_User:
             log.exception(e)
             assert False
 
-    def log_in(self):
+    def log_in(self,testcasename):
         try:
             log = abc_test_Base.getLogger()
             # t1 = Test_API_User()
@@ -48,7 +48,7 @@ class Test_API_User:
             headers = {'content-type': 'application/json'}
             e1 = Excel_Data()
             log.info("Getting data for Login payload")
-            login_dict = e1.getAPIData("Login")
+            login_dict = e1.getAPIData(testcasename)
             email = str(login_dict['email'])
             password = str(login_dict['password'])
             payload = {
@@ -115,6 +115,7 @@ class Test_API_User:
             assert code == 200, "Invalid status"
             log.info("logged in Successfully obtained via get user by token and is user is mentioned below...")
             log.info(username)
+            return username
 
         except Exception as e:
             log.info("Exception occurred please find details below")

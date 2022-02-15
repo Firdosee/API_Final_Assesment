@@ -6,14 +6,16 @@ from Application.User import Test_API_User
 from Data_Config.Excel import Excel_Data
 from TestCases.Base_Logger import abc_test_Base
 
+log = abc_test_Base.getLogger()
+
 
 class Test_API_Task:
     def add_task(self, bearer):
         try:
             log = abc_test_Base.getLogger()
-            #t1 = Test_API_User()
-            #t1.register_a_user()
-            #bearer = t1.log_in()
+            # t1 = Test_API_User()
+            # t1.register_a_user()
+            # bearer = t1.log_in()
             url = 'https://api-nodejs-todolist.herokuapp.com/task'
             headers = {'content-type': 'application/json', 'Authorization': 'Bearer ' + bearer}
             e1 = Excel_Data()
@@ -36,18 +38,18 @@ class Test_API_Task:
             log.exception(e)
             assert False
 
-    def add_additional_task(self, bearer,task):
+    def add_additional_task(self, bearer, task):
         try:
-            log = abc_test_Base.getLogger()
-            #t1 = Test_API_User()
-            #t1.register_a_user()
-            #bearer = t1.log_in()
+            global log
+            # t1 = Test_API_User()
+            # t1.register_a_user()
+            # bearer = t1.log_in()
             url = 'https://api-nodejs-todolist.herokuapp.com/task'
             headers = {'content-type': 'application/json', 'Authorization': 'Bearer ' + bearer}
-            e1 = Excel_Data()
+            # e1 = Excel_Data()
             log.info("Getting data for add task payload")
-            task_dict = e1.getAPIData("Addtask")
-            #task_1 = task_dict['description']
+            # task_dict = e1.getAPIData("Addtask")
+            # task_1 = task_dict['description']
             task_1 = task
             payload = {
                 "description": "" + task_1 + ""
@@ -65,11 +67,11 @@ class Test_API_Task:
             log.exception(e)
             assert False
 
-    def get_task(self,bearer):
+    def get_task(self, bearer):
         try:
             log = abc_test_Base.getLogger()
-            #t1 = Test_API_User()
-            #bearer = t1.log_in()
+            # t1 = Test_API_User()
+            # bearer = t1.log_in()
             url = 'https://api-nodejs-todolist.herokuapp.com/task'
             headers = {'content-type': 'application/json', 'Authorization': 'Bearer ' + bearer}
             e1 = Excel_Data()
@@ -89,23 +91,23 @@ class Test_API_Task:
             log.info("Getting json response..")
             log.info(data_1)
             id = data_1['data']
-            id1 = id[0]
-            #task_id_1 = id['_id']
-            #log.info(task_id_1)
+            id = id[0]
+            # task_id_1 = id['_id']
+            # log.info(task_id_1)
             assert code == 200, "Invalid status"
             log.info("Task id's are successfully obtained")
-            #return task_1
-            return id, data_1
+            # return task_1
+            return data_1
         except Exception as e:
             log.info("Exception occurred please find details below")
             log.exception(e)
             assert False
 
-    def get_completed_task(self):
+    def get_completed_task(self,bearer):
         try:
             log = abc_test_Base.getLogger()
-            t1 = Test_API_User()
-            bearer = t1.log_in()
+            #t1 = Test_API_User()
+            #bearer = t1.log_in()
             url = 'https://api-nodejs-todolist.herokuapp.com/task?completed=true'
             headers = {'content-type': 'application/json', 'Authorization': 'Bearer ' + bearer}
             e1 = Excel_Data()
@@ -163,11 +165,11 @@ class Test_API_Task:
             log.exception(e)
             assert False
 
-    def get_task_pagination(self):
+    def get_task_pagination(self, bearer):
         try:
-            log = abc_test_Base.getLogger()
-            t1 = Test_API_User()
-            bearer = t1.log_in()
+            global log
+            # t1 = Test_API_User()
+            # bearer = t1.log_in()
             url = 'https://api-nodejs-todolist.herokuapp.com/task?'
             e1 = Excel_Data()
             log.info("Getting Pagination details....")
@@ -193,21 +195,20 @@ class Test_API_Task:
             log.exception(e)
             assert False
 
-    def update_task_id(self):
+    def update_task_id(self,bearer, taskid):
         try:
-            log = abc_test_Base.getLogger()
-            t1 = Test_API_User()
-            bearer = t1.log_in()
+
+            #bearer = t1.log_in()
             log.info(bearer)
             baseUrl = 'https://api-nodejs-todolist.herokuapp.com'
-            url = baseUrl + '/task/620a60aa3238b70017d5fdae'
+            url = baseUrl + "/task/" + taskid
             e1 = Excel_Data()
             log.info("Updating task id  details....")
             headers = {'content-type': 'application/json', 'Authorization': 'Bearer ' + bearer}
             e1 = Excel_Data()
             payload = {
                 "completed": True
-             }
+            }
             resp = requests.put(url, data=json.dumps(payload), headers=headers)
             code = resp.status_code
             print(code)
@@ -223,14 +224,14 @@ class Test_API_Task:
             log.exception(e)
             assert False
 
-    def del_task_id(self):
+    def del_task_id(self,bearer, taskid):
         try:
             log = abc_test_Base.getLogger()
-            t1 = Test_API_User()
-            bearer = t1.log_in()
+            #t1 = Test_API_User()
+            #bearer = t1.log_in()
             log.info(bearer)
             baseUrl = 'https://api-nodejs-todolist.herokuapp.com'
-            url = baseUrl + '/task/620a728a3238b70017d5ff07'
+            url = baseUrl + "/task/" + taskid
             headers = {'content-type': 'application/json', 'Authorization': 'Bearer ' + bearer}
             log.info("Deleting task....")
             resp = requests.delete(url, headers=headers)
@@ -247,5 +248,3 @@ class Test_API_Task:
             log.info("Exception occurred please find details below")
             log.exception(e)
             assert False
-
-
